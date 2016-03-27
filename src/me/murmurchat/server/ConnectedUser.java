@@ -2,6 +2,7 @@ package me.murmurchat.server;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
 import java.security.InvalidKeyException;
@@ -102,7 +103,9 @@ public class ConnectedUser extends Thread
 
 			try
 			{
-				out.write(c.doFinal(secretMessage.getBytes()));
+				byte[] msg = c.doFinal(secretMessage.getBytes());
+				out.writeInt(msg.length);
+				out.write(msg);
 			}
 			catch (IOException e)
 			{
@@ -156,10 +159,22 @@ public class ConnectedUser extends Thread
 			disconnect();
 			return;
 		}
+		
+		System.out.println("User authenticated");
+		
+		File f = new File("res/users/", publicKey.getEncoded().toString());
+		try
+		{
+			f.createNewFile();
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+		}
 
 		while (true)
 		{
-			System.out.println("Running!");
+			//System.out.println("Running!");
 		}
 	}
 
