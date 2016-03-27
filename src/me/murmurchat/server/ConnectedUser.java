@@ -3,6 +3,7 @@ package me.murmurchat.server;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.security.InvalidKeyException;
@@ -22,19 +23,25 @@ public class ConnectedUser extends Thread
 {
 	public static final int KEY_SIZE = 294;
 
+	static int userIdCount = 0;
+	
 	Socket socket;
 
 	DataOutputStream out = null;
 	DataInputStream in = null;
 
 	boolean connected = true;
+	boolean hasHeartbeat = true;
 
 	PublicKey publicKey;
 
+	int userId = ++userIdCount;
+	
 	String secretMessage;
 
 	public ConnectedUser(Socket socket)
 	{
+		displayMessage("User connected.");
 		this.socket = socket;
 
 		try
@@ -44,7 +51,7 @@ public class ConnectedUser extends Thread
 		}
 		catch (IOException e)
 		{
-			System.err.println("IOError connecting client");
+			displayMessage("Error creating data streams.");
 			disconnect();
 			return;
 		}
@@ -62,7 +69,7 @@ public class ConnectedUser extends Thread
 		}
 		catch (IOException e)
 		{
-			System.err.println("IOError connecting client");
+			displayMessage("Error reading public key.");
 			disconnect();
 		}
 
@@ -83,7 +90,7 @@ public class ConnectedUser extends Thread
 		}
 		catch (InvalidKeySpecException e)
 		{
-			System.out.println("Client sent malformed public key, disconnecting.");
+			displayMessage("Client sent malformed public key.");
 			disconnect();
 
 			return;
@@ -109,7 +116,7 @@ public class ConnectedUser extends Thread
 			}
 			catch (IOException e)
 			{
-				System.err.println("IOError connecting client");
+				displayMessage("Error sending secret message.");
 				disconnect();
 			}
 		}
@@ -125,19 +132,19 @@ public class ConnectedUser extends Thread
 		}
 		catch (InvalidKeyException e)
 		{
-			System.err.println("Client sent invalid public key, disconnecting.");
+			displayMessage("Client sent invalid public key.");
 			e.printStackTrace();
 			disconnect();
 		}
 		catch (IllegalBlockSizeException e)
 		{
-			System.err.println("Error generating secret message");
+			displayMessage("Error generating secret message.");
 			e.printStackTrace();
 			disconnect();
 		}
 		catch (BadPaddingException e)
 		{
-			System.err.println("Error generating secret message");
+			displayMessage("Error generating secret message.");
 			e.printStackTrace();
 			disconnect();
 		}
@@ -150,7 +157,7 @@ public class ConnectedUser extends Thread
 		}
 		catch (IOException e)
 		{
-			System.err.println("IOError connecting client");
+			displayMessage("Error reading secret message.");
 			disconnect();
 		}
 
@@ -159,9 +166,9 @@ public class ConnectedUser extends Thread
 			disconnect();
 			return;
 		}
-		
-		System.out.println("User authenticated");
-		
+
+		displayMessage("User authenticated.");
+
 		File f = new File("res/users/", publicKey.getEncoded().toString());
 		try
 		{
@@ -170,27 +177,69 @@ public class ConnectedUser extends Thread
 		catch (IOException e)
 		{
 			e.printStackTrace();
+			disconnect();
+			return;
 		}
 
-		while (true)
+		try
 		{
-			//System.out.println("Running!");
+			DataInputStream fileIn = new DataInputStream(new FileInputStream(f));
+
+			int curByte = -1;
+			while ((curByte = fileIn.read()) != -1)
+				out.write((byte) curByte);
+
+			fileIn.close();
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+			disconnect();
+			return;
+		}
+
+		int packetType = -1;
+		try
+		{
+			while ((packetType = in.read()) != -1)
+			{
+				switch (packetType)
+				{
+				case 1:
+					hasHeartbeat = true;
+					break;
+				default:
+					displayMessage(("Client sent unknown packet type " + packetType));
+					break;
+				}
+			}
+		}
+		catch (IOException e)
+		{
+			displayMessage("Error reading from client.");
+			e.printStackTrace();
 		}
 	}
 
 	void disconnect()
 	{
+		displayMessage("Disconnecting client.");
 		try
 		{
 			socket.close();
 		}
 		catch (IOException e)
 		{
-			System.err.println("Failed to close thread for client.");
+			displayMessage("Error closing socket for client.");
 			return;
 		}
 
 		connected = false;
 		this.interrupt();
+	}
+	
+	void displayMessage(String msg)
+	{
+		System.out.println("[" + userId + "] " + msg);
 	}
 }
