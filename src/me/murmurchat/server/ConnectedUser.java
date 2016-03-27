@@ -4,6 +4,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.security.InvalidKeyException;
@@ -13,6 +14,7 @@ import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.ArrayList;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -24,7 +26,7 @@ public class ConnectedUser extends Thread
 	public static final int KEY_SIZE = 294;
 
 	static int userIdCount = 0;
-	
+
 	Socket socket;
 
 	DataOutputStream out = null;
@@ -34,9 +36,10 @@ public class ConnectedUser extends Thread
 	boolean hasHeartbeat = true;
 
 	PublicKey publicKey;
+	byte[] keyBytes;
 
 	int userId = ++userIdCount;
-	
+
 	String secretMessage;
 
 	public ConnectedUser(Socket socket)
@@ -62,7 +65,7 @@ public class ConnectedUser extends Thread
 	public void run()
 	{
 		// Read the 294 bytes of the 2048 bit RSA public key.
-		byte[] keyBytes = new byte[294];
+		keyBytes = new byte[294];
 		try
 		{
 			in.readFully(keyBytes);
@@ -87,6 +90,7 @@ public class ConnectedUser extends Thread
 		try
 		{
 			publicKey = keyFactory.generatePublic(new X509EncodedKeySpec(keyBytes));
+			keyBytes = publicKey.getEncoded();
 		}
 		catch (InvalidKeySpecException e)
 		{
@@ -169,7 +173,7 @@ public class ConnectedUser extends Thread
 
 		displayMessage("User authenticated.");
 
-		File f = new File("res/users/", publicKey.getEncoded().toString());
+		File f = new File("res/users/", FileNames.getFilename(publicKey.getEncoded()));
 		try
 		{
 			f.createNewFile();
@@ -185,11 +189,16 @@ public class ConnectedUser extends Thread
 		{
 			DataInputStream fileIn = new DataInputStream(new FileInputStream(f));
 
+			ArrayList<Byte> bytes = new ArrayList<Byte>();
+
 			int curByte = -1;
 			while ((curByte = fileIn.read()) != -1)
-				out.write((byte) curByte);
-
+				bytes.add((byte) curByte);
 			fileIn.close();
+
+			out.writeInt(bytes.size());
+			for (Byte b : bytes)
+				out.write(b);
 		}
 		catch (IOException e)
 		{
@@ -207,6 +216,33 @@ public class ConnectedUser extends Thread
 				{
 				case 1:
 					hasHeartbeat = true;
+					break;
+				case 2:
+					displayMessage("User updating profile");
+					int numBytes = in.readInt();
+					byte[] file = new byte[numBytes];
+					in.read(file);
+
+					File userFile = new File("res/users/", FileNames.getFilename(publicKey.getEncoded()));
+					DataOutputStream fOut = new DataOutputStream(new FileOutputStream(userFile));
+					fOut.write(file);
+					fOut.close();
+					displayMessage("Done updating");
+					break;
+				case 8:
+					displayMessage("Sending message");
+					byte[] receiver = Util.readPublicKey(in);
+					String msg = Util.readString(in);
+					
+					ConnectedUser receiverUser = MurmurServer.getUser(receiver);
+					if (receiverUser != null)
+					{
+						displayMessage("Found user");
+						receiverUser.out.write(8);
+						receiverUser.out.write(keyBytes);
+						receiverUser.out.write(msg.getBytes().length);
+						receiverUser.out.write(msg.getBytes());
+					}
 					break;
 				default:
 					displayMessage(("Client sent unknown packet type " + packetType));
@@ -237,7 +273,7 @@ public class ConnectedUser extends Thread
 		connected = false;
 		this.interrupt();
 	}
-	
+
 	void displayMessage(String msg)
 	{
 		System.out.println("[" + userId + "] " + msg);

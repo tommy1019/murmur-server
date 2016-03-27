@@ -1,6 +1,7 @@
 package me.murmurchat.server;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class MurmurServer
 {
@@ -52,5 +53,14 @@ public class MurmurServer
 	{
 		instance = new MurmurServer();
 		instance.start();
+	}
+	
+	public static ConnectedUser getUser(byte[] key)
+	{
+		for (ConnectedUser u : instance.connectedUsers)
+			if (Arrays.equals(key, u.keyBytes))
+				return u;
+		
+		return null;
 	}
 }
