@@ -242,7 +242,7 @@ public class ConnectedUser extends Thread
 		catch (IOException e)
 		{
 			displayMessage("Error reading from client.");
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 	}
 
