@@ -4,6 +4,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.Socket;
@@ -64,7 +65,6 @@ public class ConnectedUser extends Thread
 
 	public void run()
 	{
-		// Read the 294 bytes of the 2048 bit RSA public key.
 		keyBytes = new byte[294];
 		try
 		{
@@ -167,6 +167,7 @@ public class ConnectedUser extends Thread
 
 		if (!(new String(secretReply).equals(secretMessage)))
 		{
+			displayMessage("Client sent incorrect secret key, disconnecting");
 			disconnect();
 			return;
 		}
@@ -174,37 +175,34 @@ public class ConnectedUser extends Thread
 		displayMessage("User authenticated.");
 
 		File f = new File("res/users/", FileNames.getFilename(publicKey.getEncoded()));
-		try
+		if (f.exists())
 		{
-			f.createNewFile();
+			try
+			{
+				out.write(0);
+				sendUserAccountDatabase(out);
+			}
+			catch (IOException e)
+			{
+				displayMessage("Error sending user file");
+				disconnect();
+				return;
+			}
+
 		}
-		catch (IOException e)
+		else
 		{
-			e.printStackTrace();
-			disconnect();
-			return;
-		}
-
-		try
-		{
-			DataInputStream fileIn = new DataInputStream(new FileInputStream(f));
-
-			ArrayList<Byte> bytes = new ArrayList<Byte>();
-
-			int curByte = -1;
-			while ((curByte = fileIn.read()) != -1)
-				bytes.add((byte) curByte);
-			fileIn.close();
-
-			out.writeInt(bytes.size());
-			for (Byte b : bytes)
-				out.write(b);
-		}
-		catch (IOException e)
-		{
-			e.printStackTrace();
-			disconnect();
-			return;
+			try
+			{
+				out.write(1);
+				readAccountDatabase(in);
+			}
+			catch (IOException e)
+			{
+				displayMessage("Error reading user file");
+				disconnect();
+				return;
+			}
 		}
 
 		int packetType = -1;
@@ -218,22 +216,13 @@ public class ConnectedUser extends Thread
 					hasHeartbeat = true;
 					break;
 				case 2:
-					displayMessage("User updating profile");
-					int numBytes = in.readInt();
-					byte[] file = new byte[numBytes];
-					in.read(file);
-
-					File userFile = new File("res/users/", FileNames.getFilename(publicKey.getEncoded()));
-					DataOutputStream fOut = new DataOutputStream(new FileOutputStream(userFile));
-					fOut.write(file);
-					fOut.close();
-					displayMessage("Done updating");
+					readAccountDatabase(in);
 					break;
 				case 8:
 					displayMessage("Sending message");
 					byte[] receiver = Util.readPublicKey(in);
 					String msg = Util.readString(in);
-					
+
 					ConnectedUser receiverUser = MurmurServer.getUser(receiver);
 					if (receiverUser != null)
 					{
@@ -255,6 +244,44 @@ public class ConnectedUser extends Thread
 			displayMessage("Error reading from client.");
 			e.printStackTrace();
 		}
+	}
+
+	void readAccountDatabase(DataInputStream in) throws IOException
+	{
+		displayMessage("User updating profile");
+		int numBytes = in.readInt();
+		byte[] file = new byte[numBytes];
+		in.read(file);
+
+		File userFile = new File("res/users/", FileNames.getFilename(publicKey.getEncoded()));
+		DataOutputStream fOut = new DataOutputStream(new FileOutputStream(userFile));
+		fOut.write(file);
+		fOut.close();
+		displayMessage("Done updating");
+	}
+
+	void sendUserAccountDatabase(DataOutputStream out) throws IOException
+	{
+		DataInputStream fileIn = null;
+		try
+		{
+			fileIn = new DataInputStream(new FileInputStream(new File("res/users/", FileNames.getFilename(publicKey.getEncoded()))));
+		}
+		catch (FileNotFoundException e)
+		{
+			displayMessage("User does not have a database, disconnecting");
+		}
+
+		ArrayList<Byte> bytes = new ArrayList<Byte>();
+
+		int curByte = -1;
+		while ((curByte = fileIn.read()) != -1)
+			bytes.add((byte) curByte);
+		fileIn.close();
+
+		out.writeInt(bytes.size());
+		for (Byte b : bytes)
+			out.write(b);
 	}
 
 	void disconnect()
