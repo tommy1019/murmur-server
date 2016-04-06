@@ -28,23 +28,21 @@ public class Util
 		return key;
 	}
 	
-	public static String readString(DataInputStream in)
+	public static byte[] readPrefixedBytes(DataInputStream in)
 	{
 		try
 		{
-			int numBytes;
-			numBytes = in.read() & 0xFF;
-
+			 int numBytes = in.readInt();
 			byte[] bytes = new byte[numBytes];
 			in.read(bytes);
 
-			return new String(bytes);
+			return bytes;
 		}
 		catch (IOException e)
 		{
 			e.printStackTrace();
 		}
 		
-		return "Error";
+		return new byte[0];
 	}
 }

@@ -111,7 +111,8 @@ public class ConnectedUser extends Thread
 				strBuilder.append(random.nextInt(256));
 
 			secretMessage = strBuilder.toString();
-
+			displayMessage(secretMessage);
+			
 			try
 			{
 				byte[] msg = c.doFinal(secretMessage.getBytes());
@@ -140,13 +141,7 @@ public class ConnectedUser extends Thread
 			e.printStackTrace();
 			disconnect();
 		}
-		catch (IllegalBlockSizeException e)
-		{
-			displayMessage("Error generating secret message.");
-			e.printStackTrace();
-			disconnect();
-		}
-		catch (BadPaddingException e)
+		catch (BadPaddingException | IllegalBlockSizeException e)
 		{
 			displayMessage("Error generating secret message.");
 			e.printStackTrace();
@@ -157,7 +152,7 @@ public class ConnectedUser extends Thread
 
 		try
 		{
-			in.readFully(secretReply);
+			in.read(secretReply);
 		}
 		catch (IOException e)
 		{
@@ -188,7 +183,6 @@ public class ConnectedUser extends Thread
 				disconnect();
 				return;
 			}
-
 		}
 		else
 		{
@@ -221,7 +215,7 @@ public class ConnectedUser extends Thread
 				case 8:
 					displayMessage("Sending message");
 					byte[] receiver = Util.readPublicKey(in);
-					String msg = Util.readString(in);
+					byte[] msg = Util.readPrefixedBytes(in);
 
 					ConnectedUser receiverUser = MurmurServer.getUser(receiver);
 					if (receiverUser != null)
@@ -229,8 +223,8 @@ public class ConnectedUser extends Thread
 						displayMessage("Found user");
 						receiverUser.out.write(8);
 						receiverUser.out.write(keyBytes);
-						receiverUser.out.write(msg.getBytes().length);
-						receiverUser.out.write(msg.getBytes());
+						receiverUser.out.writeInt(msg.length);
+						receiverUser.out.write(msg);
 					}
 					break;
 				default:
@@ -242,7 +236,6 @@ public class ConnectedUser extends Thread
 		catch (IOException e)
 		{
 			displayMessage("Error reading from client.");
-			//e.printStackTrace();
 		}
 	}
 
@@ -270,6 +263,8 @@ public class ConnectedUser extends Thread
 		catch (FileNotFoundException e)
 		{
 			displayMessage("User does not have a database, disconnecting");
+			disconnect();
+			return;
 		}
 
 		ArrayList<Byte> bytes = new ArrayList<Byte>();
@@ -280,8 +275,7 @@ public class ConnectedUser extends Thread
 		fileIn.close();
 
 		out.writeInt(bytes.size());
-		for (Byte b : bytes)
-			out.write(b);
+		out.write(Util.toByteArray(bytes));
 	}
 
 	void disconnect()
