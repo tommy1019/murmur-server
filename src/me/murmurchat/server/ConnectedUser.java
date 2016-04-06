@@ -213,14 +213,12 @@ public class ConnectedUser extends Thread
 					readAccountDatabase(in);
 					break;
 				case 8:
-					displayMessage("Sending message");
 					byte[] receiver = Util.readPublicKey(in);
 					byte[] msg = Util.readPrefixedBytes(in);
 
 					ConnectedUser receiverUser = MurmurServer.getUser(receiver);
 					if (receiverUser != null)
 					{
-						displayMessage("Found user");
 						receiverUser.out.write(8);
 						receiverUser.out.write(keyBytes);
 						receiverUser.out.writeInt(msg.length);
