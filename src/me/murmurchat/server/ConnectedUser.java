@@ -76,21 +76,17 @@ public class ConnectedUser extends Thread
 			disconnect();
 		}
 
-		KeyFactory keyFactory = null;
 		try
 		{
-			keyFactory = KeyFactory.getInstance("RSA");
+			KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+
+			publicKey = keyFactory.generatePublic(new X509EncodedKeySpec(keyBytes));
+			keyBytes = publicKey.getEncoded();
 		}
 		catch (NoSuchAlgorithmException e)
 		{
 			System.err.println("Error no RSA key factory found program must exit.");
 			System.exit(1);
-		}
-
-		try
-		{
-			publicKey = keyFactory.generatePublic(new X509EncodedKeySpec(keyBytes));
-			keyBytes = publicKey.getEncoded();
 		}
 		catch (InvalidKeySpecException e)
 		{
@@ -111,8 +107,7 @@ public class ConnectedUser extends Thread
 				strBuilder.append(random.nextInt(256));
 
 			secretMessage = strBuilder.toString();
-			displayMessage(secretMessage);
-			
+
 			try
 			{
 				byte[] msg = c.doFinal(secretMessage.getBytes());
@@ -130,20 +125,9 @@ public class ConnectedUser extends Thread
 			System.err.println("Error no RSA key factory found program must exit.");
 			System.exit(1);
 		}
-		catch (NoSuchPaddingException e)
-		{
-			e.printStackTrace();
-			disconnect();
-		}
-		catch (InvalidKeyException e)
+		catch (InvalidKeyException | NoSuchPaddingException | BadPaddingException | IllegalBlockSizeException e)
 		{
 			displayMessage("Client sent invalid public key.");
-			e.printStackTrace();
-			disconnect();
-		}
-		catch (BadPaddingException | IllegalBlockSizeException e)
-		{
-			displayMessage("Error generating secret message.");
 			e.printStackTrace();
 			disconnect();
 		}
@@ -199,9 +183,16 @@ public class ConnectedUser extends Thread
 			}
 		}
 
-		int packetType = -1;
+		displayMessage("Client connected.");
+		clientReadLoop();
+	}
+
+	void clientReadLoop()
+	{
 		try
 		{
+			int packetType = -1;
+
 			while ((packetType = in.read()) != -1)
 			{
 				switch (packetType)
@@ -233,7 +224,8 @@ public class ConnectedUser extends Thread
 		}
 		catch (IOException e)
 		{
-			displayMessage("Error reading from client.");
+			displayMessage("Error in client read loop.");
+			disconnect();
 		}
 	}
 

@@ -16,27 +16,24 @@ public class MurmurServer
 	public MurmurServer()
 	{
 		connectedUsers = new ArrayList<ConnectedUser>();
-		
+
 		acceptThread = new AcceptThread();
 		heartbeatThread = new HeartbeatThread();
-		
-		userRemover = new Thread(new Runnable()
+
+		userRemover = new Thread(() ->
 		{
-			public void run()
+			while (true)
 			{
-				while (true)
+				for (int i = 0; i < connectedUsers.size(); i++)
+					if (!connectedUsers.get(i).connected)
+						connectedUsers.remove(i);
+				try
 				{
-					for (int i = 0; i < connectedUsers.size(); i++)
-						if (!connectedUsers.get(i).connected)
-							connectedUsers.remove(i);
-					try
-					{
-						Thread.sleep(10);
-					}
-					catch (InterruptedException e)
-					{
-						e.printStackTrace();
-					}
+					Thread.sleep(10);
+				}
+				catch (InterruptedException e)
+				{
+					e.printStackTrace();
 				}
 			}
 		});
@@ -49,18 +46,14 @@ public class MurmurServer
 		userRemover.start();
 	}
 
+	public static ConnectedUser getUser(byte[] key)
+	{
+		return instance.connectedUsers.stream().filter(u -> Arrays.equals(key, u.keyBytes)).findFirst().orElse(null);
+	}
+
 	public static void main(String[] args)
 	{
 		instance = new MurmurServer();
 		instance.start();
-	}
-	
-	public static ConnectedUser getUser(byte[] key)
-	{
-		for (ConnectedUser u : instance.connectedUsers)
-			if (Arrays.equals(key, u.keyBytes))
-				return u;
-		
-		return null;
 	}
 }
