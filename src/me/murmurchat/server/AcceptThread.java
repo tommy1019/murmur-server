@@ -12,9 +12,12 @@ public class AcceptThread extends Thread
 
 	public AcceptThread()
 	{
+		this.setName("Accept Thread");
+		
 		try
 		{
 			serverSocket = new ServerSocket(PORT);
+			serverSocket.setSoTimeout(1000);
 		}
 		catch (IOException e)
 		{
@@ -26,7 +29,7 @@ public class AcceptThread extends Thread
 	public void run()
 	{
 		System.out.println("Waiting for connections...");
-		while (true)
+		while (!this.isInterrupted())
 		{
 			try
 			{
@@ -37,7 +40,6 @@ public class AcceptThread extends Thread
 			}
 			catch (IOException e)
 			{
-				System.err.println("Error accepting client.");
 			}
 		}
 	}

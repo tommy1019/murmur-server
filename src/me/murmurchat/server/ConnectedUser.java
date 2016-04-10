@@ -60,6 +60,8 @@ public class ConnectedUser extends Thread
 			return;
 		}
 
+		this.setName("Connected User [" + userId + "]");
+		
 		this.start();
 	}
 
@@ -193,7 +195,7 @@ public class ConnectedUser extends Thread
 		{
 			int packetType = -1;
 
-			while ((packetType = in.read()) != -1)
+			while (!this.isInterrupted() && (packetType = in.read()) != -1)
 			{
 				switch (packetType)
 				{
@@ -221,11 +223,11 @@ public class ConnectedUser extends Thread
 					break;
 				}
 			}
+			
+			socket.close();
 		}
 		catch (IOException e)
 		{
-			displayMessage("Error in client read loop.");
-			disconnect();
 		}
 	}
 
@@ -273,11 +275,11 @@ public class ConnectedUser extends Thread
 		displayMessage("Disconnecting client.");
 		try
 		{
-			socket.close();
+			out.write(2);
 		}
 		catch (IOException e)
 		{
-			displayMessage("Error closing socket for client.");
+			displayMessage("Error notifying client of disconnecting.");
 			return;
 		}
 

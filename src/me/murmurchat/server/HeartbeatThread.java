@@ -4,9 +4,14 @@ import java.io.IOException;
 
 public class HeartbeatThread extends Thread
 {
+	public HeartbeatThread()
+	{
+		this.setName("Heartbeat Thread");
+	}
+	
 	public void run()
 	{
-		while (true)
+		while (!this.isInterrupted())
 		{
 			for (int i = 0; i < MurmurServer.instance.connectedUsers.size(); i++)
 			{
@@ -29,14 +34,14 @@ public class HeartbeatThread extends Thread
 					user.disconnect();
 				}
 			}
-			
+
 			try
 			{
 				Thread.sleep(10000);
 			}
 			catch (InterruptedException e)
 			{
-				e.printStackTrace();
+				this.interrupt();
 			}
 		}
 	}

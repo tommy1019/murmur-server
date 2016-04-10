@@ -2,6 +2,7 @@ package me.murmurchat.server;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Scanner;
 
 public class MurmurServer
 {
@@ -11,7 +12,7 @@ public class MurmurServer
 
 	AcceptThread acceptThread;
 	HeartbeatThread heartbeatThread;
-	Thread userRemover;
+	UserRemoverThread userRemover;
 
 	public MurmurServer()
 	{
@@ -19,25 +20,8 @@ public class MurmurServer
 
 		acceptThread = new AcceptThread();
 		heartbeatThread = new HeartbeatThread();
+		userRemover = new UserRemoverThread();
 
-		userRemover = new Thread(() ->
-		{
-			while (true)
-			{
-				for (int i = 0; i < connectedUsers.size(); i++)
-					if (!connectedUsers.get(i).connected)
-						connectedUsers.remove(i);
-				try
-				{
-					Thread.sleep(10);
-				}
-				catch (InterruptedException e)
-				{
-					e.printStackTrace();
-				}
-			}
-		});
-		
 		FileNames.loadFromFile();
 	}
 
@@ -46,6 +30,43 @@ public class MurmurServer
 		acceptThread.start();
 		heartbeatThread.start();
 		userRemover.start();
+
+		handelInput();
+
+		heartbeatThread.interrupt();
+		userRemover.interrupt();
+		acceptThread.interrupt();
+
+		for (ConnectedUser u : connectedUsers)
+		{
+			u.interrupt();
+			u.disconnect();
+		}
+
+		System.out.println("Requested closing of all threads.");
+	}
+
+	public void handelInput()
+	{
+		Scanner input = new Scanner(System.in);
+		boolean running = true;
+
+		while (running)
+		{
+			String line = input.nextLine();
+
+			switch (line)
+			{
+			case "stop":
+				running = false;
+				break;
+			case "list":
+				System.out.println("There are " + connectedUsers.size() + " users online.");
+				break;
+			}
+		}
+
+		input.close();
 	}
 
 	public static ConnectedUser getUser(byte[] key)
@@ -53,7 +74,7 @@ public class MurmurServer
 		for (ConnectedUser u : instance.connectedUsers)
 			if (Arrays.equals(key, u.keyBytes))
 				return u;
-		
+
 		return null;
 	}
 
