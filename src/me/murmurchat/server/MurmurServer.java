@@ -37,6 +37,8 @@ public class MurmurServer
 				}
 			}
 		});
+		
+		FileNames.loadFromFile();
 	}
 
 	public void start()
@@ -48,7 +50,11 @@ public class MurmurServer
 
 	public static ConnectedUser getUser(byte[] key)
 	{
-		return instance.connectedUsers.stream().filter(u -> Arrays.equals(key, u.keyBytes)).findFirst().orElse(null);
+		for (ConnectedUser u : instance.connectedUsers)
+			if (Arrays.equals(key, u.keyBytes))
+				return u;
+		
+		return null;
 	}
 
 	public static void main(String[] args)
